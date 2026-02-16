@@ -35,8 +35,9 @@ with st.expander("💻 Uso de CPU (Procesadores)"):
 
 # --- SECCIÓN 3: TRÁFICO Y NODOS ---
 with st.expander("🌐 Tráfico de Red (VNET)"):
-    v_max = st.number_input("Consumo Máximo VNET (Gbps)", 0.0, 7.0, 3.5)
-    v_avg = st.number_input("Tráfico Promedio VNET (Gbps)", 0.0, 7.0, 2.1)
+    v_cnt = st.number_input("Capacidad Contratada con VNET (Gbps)", 0.0, 20.0, 7.0)
+    v_max = st.number_input("Consumo Máximo VNET (Gbps)", 0.0, v_cnt, 3.5)
+    v_avg = st.number_input("Tráfico Promedio VNET (Gbps)", 0.0, v_cnt, 2.1)
     st.write("---")
     st.subheader("Tráfico por Nodos (Mbps)")
     n1, n2, n3 = st.columns(3)
