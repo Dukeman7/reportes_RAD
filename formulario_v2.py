@@ -12,7 +12,7 @@ st.markdown("""
     .main { background-color: #f5f7f9; }
     .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #007BFF; color: white; }
     </style>
-    """, unsafe_64=True)
+    """, unsafe_allow_html=True) # <-- ESTE ES EL CAMBIO
 
 st.title("📡 RADnet: Gestión Operativa v2.0")
 st.info("Complete las secciones para generar el reporte técnico normado.")
