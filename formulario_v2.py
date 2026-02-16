@@ -79,7 +79,12 @@ def generar_pdf():
     pdf.cell(0, 10, f"Voltaje: {v_volt}V | Alerta: {est_electrico}", ln=True)
     pdf.multi_cell(0, 10, f"Observaciones: {obs}")
     
-    return pdf.output(dest='S').encode('latin-1')
+# return pdf.output(dest='S').encode('latin-1')
+# Cambia esto:
+# return pdf.output(dest='S').encode('latin-1')
+
+# Por esto (así es como fpdf2 entrega el byte-stream ahora):
+return bytes(pdf.output())
 
 if st.button("🚀 PROCESAR Y GENERAR PDF"):
     pdf_data = generar_pdf()
