@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go # Usamos Graph Objects para control total
 import re
 
-st.set_page_config(page_title="RADnet Monitoring v4.1", layout="wide")
-st.title("📡 RADnet Telecom: Auditoría de Red")
+st.set_page_config(page_title="RADnet Monitoring v4.3", layout="wide")
+st.title("📡 RADnet Telecom: Auditoría con Escala Tatuada")
 
 report_input = st.text_area("Pegue aquí el reporte de texto:", height=150)
 
@@ -20,41 +20,53 @@ if report_input:
     cpus, nodes = parse_data(report_input)
     df_cpu = pd.DataFrame(list(cpus.items()), columns=['Equipo', 'Carga %'])
     
-    # --- 🎯 AQUÍ ESTÁ LA CORRECCIÓN DEL COLOR ---
-    # Creamos una columna de color basada en el valor real, no en la posición relativa
-    def asignar_color(valor):
-        if valor < 15: return 'lime'      # Verde lima-limón (Baja carga)
-        if valor < 70: return 'green'     # Verde estándar (Operación normal)
-        if valor < 85: return 'yellow'    # Amarillo (Atención)
-        return 'red'                      # Rojo (Crítico)
+    # --- 🎨 CONSTRUCCIÓN DEL GRÁFICO CON FONDO TATUADO ---
+    fig = go.Figure()
 
-    df_cpu['Color'] = df_cpu['Carga %'].apply(asignar_color)
-    
-    # Escala Y dinámica (20% sobre el máximo)
-    max_val = df_cpu['Carga %'].max() if not df_cpu.empty else 10
-    limite_y = max_val * 1.2
+    # 1. Agregamos las barras de datos (en color negro o gris oscuro para que contrasten)
+    fig.add_trace(go.Bar(
+        x=df_cpu['Equipo'],
+        y=df_cpu['Carga %'],
+        marker_color='rgb(40, 40, 40)', 
+        text=df_cpu['Carga %'],
+        textposition='outside',
+        name='Carga Real'
+    ))
 
-    st.subheader(f"📊 Carga de Procesadores (Escala ajustada a {limite_y:.1f}%)")
-    
-    # Usamos color_discrete_map para que respete nuestros colores fijos
-    fig_cpu = px.bar(df_cpu, x='Equipo', y='Carga %', 
-                     color='Color',
-                     color_discrete_map={'lime': '#32CD32', 'green': '#008000', 'yellow': '#FFFF00', 'red': '#FF0000'},
-                     range_y=[0, limite_y],
-                     text_auto=True)
-    
-    fig_cpu.update_layout(showlegend=False) # Limpiamos la leyenda de colores
-    st.plotly_chart(fig_cpu, use_container_width=True)
+    # 2. "TATUAMOS" EL FONDO (Zonas fijas de color)
+    # Definimos los rectángulos de fondo (0-20, 20-40, 40-60, 60-80, 80-100)
+    zonas = [
+        {'y0': 0,  'y1': 20, 'color': 'rgba(0, 255, 0, 0.2)', 'label': 'Óptimo'},      # Verde
+        {'y0': 20, 'y1': 40, 'color': 'rgba(173, 255, 47, 0.2)', 'label': 'Bajo'},     # Verde Lima
+        {'y0': 40, 'y1': 60, 'color': 'rgba(255, 255, 0, 0.2)', 'label': 'Medio'},     # Amarillo
+        {'y0': 60, 'y1': 80, 'color': 'rgba(255, 165, 0, 0.2)', 'label': 'Alto'},      # Naranja
+        {'y0': 80, 'y1': 100, 'color': 'rgba(255, 0, 0, 0.2)', 'label': 'Crítico'}    # Rojo
+    ]
 
-    # --- 🍕 TRÁFICO POR NODOS (DOBLE VISTA) ---
+    for zona in zonas:
+        fig.add_hrect(y0=zona['y0'], y1=zona['y1'], fillcolor=zona['color'], 
+                      layer="below", line_width=0, annotation_text=zona['label'], 
+                      annotation_position="left")
+
+    # Ajustes de layout
+    fig.update_layout(
+        yaxis=dict(range=[0, 100], title="Carga %"),
+        xaxis=dict(title="Equipos CGNAT / Router"),
+        height=500,
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+
+    st.subheader("📊 Monitoreo con Escala de Seguridad Permanente")
+    st.plotly_chart(fig, use_container_width=True)
+
+    # --- 🍕 SECCIÓN DE TRÁFICO (DOBLE PIE) ---
     st.divider()
     df_nodes = pd.DataFrame(list(nodes.items()), columns=['Nodo', 'Mbps'])
     c1, c2 = st.columns(2)
-    
     with c1:
-        st.write("**Vista Global (con TH)**")
+        st.write("**Capacidad Total**")
         st.plotly_chart(px.pie(df_nodes, values='Mbps', names='Nodo', hole=.4), use_container_width=True)
     with c2:
-        st.write("**Vista Distribución (Sin TH)**")
+        st.write("**Distribución Nodos Secundarios (Sin TH)**")
         df_sub = df_nodes[df_nodes['Nodo'] != 'TH']
         st.plotly_chart(px.pie(df_sub, values='Mbps', names='Nodo', hole=.4), use_container_width=True)
