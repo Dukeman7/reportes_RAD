@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go # Usamos Graph Objects para control total
+import plotly.express as px
 import re
+import numpy as np
 
-st.set_page_config(page_title="RADnet Monitoring v4.3", layout="wide")
-st.title("📡 RADnet Telecom: Auditoría con Escala Tatuada")
+st.set_page_config(page_title="RADnet Monitoring v4.4", layout="wide")
+st.title("📡 RADnet Telecom: Auditoría de Red (Escala v4.1)")
 
 report_input = st.text_area("Pegue aquí el reporte de texto:", height=150)
 
@@ -20,53 +21,59 @@ if report_input:
     cpus, nodes = parse_data(report_input)
     df_cpu = pd.DataFrame(list(cpus.items()), columns=['Equipo', 'Carga %'])
     
-    # --- 🎨 CONSTRUCCIÓN DEL GRÁFICO CON FONDO TATUADO ---
-    fig = go.Figure()
+    # --- 1. LÓGICA DE COLORES v4.1 (Brillantes y Sólidos) ---
+    def asignar_color(valor):
+        if valor < 20: return 'lime'      # <--- Brillo Intenso (Óptimo)
+        if valor < 40: return 'limegreen' # Óptimo/Bajo
+        if valor < 60: return 'yellow'    # Medio (Atención)
+        if valor < 80: return 'orange'    # Alto
+        return 'red'                      # Crítico
 
-    # 1. Agregamos las barras de datos (en color negro o gris oscuro para que contrasten)
-    fig.add_trace(go.Bar(
-        x=df_cpu['Equipo'],
-        y=df_cpu['Carga %'],
-        marker_color='rgb(40, 40, 40)', 
-        text=df_cpu['Carga %'],
-        textposition='outside',
-        name='Carga Real'
-    ))
+    df_cpu['Color'] = df_cpu['Carga %'].apply(asignar_color)
+    
+    # --- 2. CÁLCULO DE EJE Y (Múltiplo de 5) ---
+    max_real = df_cpu['Carga %'].max() if not df_cpu.empty else 10
+    objetivo_y = max_real * 1.20 # Máxima carga + 20%
+    limite_y = int(np.ceil(objetivo_y / 5) * 5) # Redondeo al múltiplo de 5 superior
+    if limite_y < 10: limite_y = 10 # Mínimo visual
 
-    # 2. "TATUAMOS" EL FONDO (Zonas fijas de color)
-    # Definimos los rectángulos de fondo (0-20, 20-40, 40-60, 60-80, 80-100)
-    zonas = [
-        {'y0': 0,  'y1': 20, 'color': 'rgba(0, 255, 0, 0.2)', 'label': 'Óptimo'},      # Verde
-        {'y0': 20, 'y1': 40, 'color': 'rgba(173, 255, 47, 0.2)', 'label': 'Bajo'},     # Verde Lima
-        {'y0': 40, 'y1': 60, 'color': 'rgba(255, 255, 0, 0.2)', 'label': 'Medio'},     # Amarillo
-        {'y0': 60, 'y1': 80, 'color': 'rgba(255, 165, 0, 0.2)', 'label': 'Alto'},      # Naranja
-        {'y0': 80, 'y1': 100, 'color': 'rgba(255, 0, 0, 0.2)', 'label': 'Crítico'}    # Rojo
-    ]
+    st.subheader(f"📊 Carga de Procesadores (Perspectiva ajustada a {limite_y}%)")
+    
+    col_chart, col_tatuaje = st.columns([4, 1]) # 4 partes gráfico, 1 parte tatuaje
 
-    for zona in zonas:
-        fig.add_hrect(y0=zona['y0'], y1=zona['y1'], fillcolor=zona['color'], 
-                      layer="below", line_width=0, annotation_text=zona['label'], 
-                      annotation_position="left")
+    with col_chart:
+        # Gráfico v4.1 con escala discreta y rango Y calculado
+        fig_cpu = px.bar(df_cpu, x='Equipo', y='Carga %', 
+                         color='Color',
+                         color_discrete_map={'lime': '#00FF00', 'limegreen': '#32CD32', 'yellow': '#FFFF00', 'orange': '#FFA500', 'red': '#FF0000'},
+                         range_y=[0, limite_y],
+                         text_auto=True)
+        fig_cpu.update_layout(showlegend=False)
+        st.plotly_chart(fig_cpu, use_container_width=True)
 
-    # Ajustes de layout
-    fig.update_layout(
-        yaxis=dict(range=[0, 100], title="Carga %"),
-        xaxis=dict(title="Equipos CGNAT / Router"),
-        height=500,
-        margin=dict(l=20, r=20, t=40, b=20)
-    )
+    with col_tatuaje:
+        # --- 3. EL "TATUAJE" (Imagen Fija y Brillante) ---
+        st.write("**Escala de Referencia RADnet**")
+        # Simulamos la imagen usando Markdown y CSS para que sea "brillante"
+        st.markdown("""
+        <div style="border: 2px solid white; padding: 10px; border-radius: 5px; text-align: center; font-weight: bold; color: black;">
+          <div style="background-color: #FF0000; padding: 5px; border-radius: 3px; margin-bottom: 2px;">80-100% Crítico</div>
+          <div style="background-color: #FFA500; padding: 5px; border-radius: 3px; margin-bottom: 2px;">60-80% Alto</div>
+          <div style="background-color: #FFFF00; padding: 5px; border-radius: 3px; margin-bottom: 2px;">40-60% Medio</div>
+          <div style="background-color: #32CD32; padding: 5px; border-radius: 3px; margin-bottom: 2px;">20-40% Óptimo-Bajo</div>
+          <div style="background-color: #00FF00; padding: 5px; border-radius: 3px; margin-bottom: 2px;">00-20% Óptimo</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.caption("Esta escala es fija y sirve como guía visual.")
 
-    st.subheader("📊 Monitoreo con Escala de Seguridad Permanente")
-    st.plotly_chart(fig, use_container_width=True)
-
-    # --- 🍕 SECCIÓN DE TRÁFICO (DOBLE PIE) ---
+    # --- 🍕 TRÁFICO POR NODOS (DOBLE PIE) ---
     st.divider()
     df_nodes = pd.DataFrame(list(nodes.items()), columns=['Nodo', 'Mbps'])
     c1, c2 = st.columns(2)
     with c1:
-        st.write("**Capacidad Total**")
+        st.write("**Total (con TH)**")
         st.plotly_chart(px.pie(df_nodes, values='Mbps', names='Nodo', hole=.4), use_container_width=True)
     with c2:
-        st.write("**Distribución Nodos Secundarios (Sin TH)**")
+        st.write("**Secundarios (Sin TH)**")
         df_sub = df_nodes[df_nodes['Nodo'] != 'TH']
         st.plotly_chart(px.pie(df_sub, values='Mbps', names='Nodo', hole=.4), use_container_width=True)
