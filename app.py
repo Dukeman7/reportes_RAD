@@ -3,69 +3,58 @@ import pandas as pd
 import plotly.express as px
 import re
 
-st.set_page_config(page_title="RADnet Monitoring v4.0", layout="wide")
-st.title("📡 RADnet Telecom: Auditoría de Red de Alto Nivel")
+st.set_page_config(page_title="RADnet Monitoring v4.1", layout="wide")
+st.title("📡 RADnet Telecom: Auditoría de Red")
 
-report_input = st.text_area("Pegue aquí el reporte de texto:", height=200)
+report_input = st.text_area("Pegue aquí el reporte de texto:", height=150)
 
 def parse_data(text):
     if not text: return None, None
-    # Extracción de CPUs
     cpus = re.findall(r"CPU ([\w-]+):\s*(\d+)%", text)
     cpu_dict = {f"CPU {name}": int(val) for name, val in cpus}
-    
-    # Extracción de Nodos con conversión a Mbps
     nodes = re.findall(r"-NODO\s*([\w-]+)\s*:.*?\n(?:PROMEDIO|Promedio):\s*([\d.]+)\s*(Mbps|Gbps)", text, re.IGNORECASE | re.DOTALL)
-    node_dict = {}
-    for name, val, unit in nodes:
-        v = float(val)
-        if unit.lower() == 'gbps': v *= 1000
-        node_dict[name.upper()] = round(v, 2)
-        
+    node_dict = {name.upper(): (float(val) * 1000 if unit.lower() == 'gbps' else float(val)) for name, val, unit in nodes}
     return cpu_dict, node_dict
 
 if report_input:
     cpus, nodes = parse_data(report_input)
-    
-    # --- 1. PROCESADORES (GRÁFICO DE BARRAS) ---
-    st.subheader("📊 Estado de Carga de Procesadores")
     df_cpu = pd.DataFrame(list(cpus.items()), columns=['Equipo', 'Carga %'])
     
-    # Cálculo de escala Y: 20% por encima del máximo valor detectado
-    max_carga = df_cpu['Carga %'].max() if not df_cpu.empty else 10
-    limite_y = max_carga * 1.20 if max_carga > 0 else 20
+    # --- 🎯 AQUÍ ESTÁ LA CORRECCIÓN DEL COLOR ---
+    # Creamos una columna de color basada en el valor real, no en la posición relativa
+    def asignar_color(valor):
+        if valor < 15: return 'lime'      # Verde lima-limón (Baja carga)
+        if valor < 70: return 'green'     # Verde estándar (Operación normal)
+        if valor < 85: return 'yellow'    # Amarillo (Atención)
+        return 'red'                      # Rojo (Crítico)
 
-    # Escala de colores corregida: Verde hasta el 70%, Amarillo al 85%, Rojo al 90%+
-    fig_cpu = px.bar(df_cpu, x='Equipo', y='Carga %', color='Carga %',
-                     color_continuous_scale=[[0, 'green'], [0.7, 'green'], [0.85, 'yellow'], [1, 'red']],
+    df_cpu['Color'] = df_cpu['Carga %'].apply(asignar_color)
+    
+    # Escala Y dinámica (20% sobre el máximo)
+    max_val = df_cpu['Carga %'].max() if not df_cpu.empty else 10
+    limite_y = max_val * 1.2
+
+    st.subheader(f"📊 Carga de Procesadores (Escala ajustada a {limite_y:.1f}%)")
+    
+    # Usamos color_discrete_map para que respete nuestros colores fijos
+    fig_cpu = px.bar(df_cpu, x='Equipo', y='Carga %', 
+                     color='Color',
+                     color_discrete_map={'lime': '#32CD32', 'green': '#008000', 'yellow': '#FFFF00', 'red': '#FF0000'},
                      range_y=[0, limite_y],
                      text_auto=True)
     
-    fig_cpu.update_layout(coloraxis_showscale=False) # Quitamos la leyenda lateral para limpiar
+    fig_cpu.update_layout(showlegend=False) # Limpiamos la leyenda de colores
     st.plotly_chart(fig_cpu, use_container_width=True)
 
-    # --- 2. TRÁFICO POR NODOS (DOBLE PIE) ---
+    # --- 🍕 TRÁFICO POR NODOS (DOBLE VISTA) ---
     st.divider()
-    col_a, col_b = st.columns(2)
-    
     df_nodes = pd.DataFrame(list(nodes.items()), columns=['Nodo', 'Mbps'])
+    c1, c2 = st.columns(2)
     
-    with col_a:
-        st.subheader("🌐 Distribución Total (Incluye TH)")
-        fig_total = px.pie(df_nodes, values='Mbps', names='Nodo', hole=.4,
-                           title="Participación de TH en la Red")
-        st.plotly_chart(fig_total, use_container_width=True)
-
-    with col_b:
-        st.subheader("🛰️ Distribución Interna (Sin TH)")
-        # Filtramos TH para ver la distribución real de los nodos menores
-        df_sin_th = df_nodes[df_nodes['Nodo'] != 'TH']
-        if not df_sin_th.empty:
-            fig_interna = px.pie(df_sin_th, values='Mbps', names='Nodo', hole=.4,
-                                title="Balance entre Nodos Secundarios",
-                                color_discrete_sequence=px.colors.qualitative.Pastel)
-            st.plotly_chart(fig_interna, use_container_width=True)
-        else:
-            st.info("No hay otros nodos para comparar además de TH.")
-
-    st.success(f"✅ Auditoría completada. Escala de visualización ajustada a {limite_y:.1f}% max.")
+    with c1:
+        st.write("**Vista Global (con TH)**")
+        st.plotly_chart(px.pie(df_nodes, values='Mbps', names='Nodo', hole=.4), use_container_width=True)
+    with c2:
+        st.write("**Vista Distribución (Sin TH)**")
+        df_sub = df_nodes[df_nodes['Nodo'] != 'TH']
+        st.plotly_chart(px.pie(df_sub, values='Mbps', names='Nodo', hole=.4), use_container_width=True)
