@@ -6,7 +6,7 @@ import json
 st.set_page_config(page_title="IUT-RC: Certificación TDA", page_icon="📡")
 
 # --- 2. CONEXIÓN A GOOGLE SHEETS ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+# conn = st.connection("gsheets", type=GSheetsConnection)
 URL_SHEET = "https://docs.google.com/spreadsheets/d/1DFneYggw8TZQ0PSAKWWeyhRGHW5HQbTJhD_-ThdfFfc/edit?usp=sharing"
 
 def registrar_en_nube(nombre, cedula, nota, intento):
