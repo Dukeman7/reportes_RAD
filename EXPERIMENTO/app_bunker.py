@@ -1,9 +1,6 @@
 import streamlit as st
-import pandas as pd
-import os
-import re
-from datetime import datetime, timedelta
-from streamlit_gsheets import GSheetsConnection
+import requests
+import json
 
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="IUT-RC: Certificación TDA", page_icon="📡")
