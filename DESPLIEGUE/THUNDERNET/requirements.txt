@@ -1,3 +1,6 @@
-streamlit
-pandas
-plotly
+# Requirements para Reportes RAD - Proyecto Thundernet
+streamlit==1.32.0
+pandas==2.2.1
+plotly==5.19.0
+# Opcional: Para manejo de archivos Excel si fuera necesario más adelante
+openpyxl==3.1.2
